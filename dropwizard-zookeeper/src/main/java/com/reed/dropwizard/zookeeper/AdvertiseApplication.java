@@ -1,5 +1,7 @@
 package com.reed.dropwizard.zookeeper;
 
+import com.reed.dropwizard.zookeeper.metadata.ApplicationMetadata;
+
 import com.google.common.base.Throwables;
 
 import io.dropwizard.Application;
@@ -26,28 +28,6 @@ public class AdvertiseApplication {
   private final CuratorFramework curatorClient;
   private final InstanceSerializer<ApplicationMetadata> jacksonInstanceSerializer;
 
-  public final class ApplicationMetadata {
-    @JsonProperty( "address" )
-    private final String address;
-
-    @JsonProperty( "port" )
-    private final int port;
-
-    public ApplicationMetadata( @JsonProperty( "address" ) String address,
-                               @JsonProperty( "port" ) int port ) {
-      this.address = address;
-      this.port = port;
-    }
-
-    public String getAddress() {
-      return address;
-    }
-
-    public int getPort() {
-      return port;
-    }
-  }
-
   public AdvertiseApplication( String connectionString, String basePath ) {
     try {
       curatorClient = CuratorFrameworkFactory.builder()
@@ -67,7 +47,6 @@ public class AdvertiseApplication {
   public AdvertiseApplication  register( Application application, String address, Integer port ) {
     try {
       ServiceDiscovery<ApplicationMetadata> discovery = getDiscovery();
-      discovery.start();
       discovery.registerService( getInstance( application, address, port ) );
       discovery.close();
     } catch( Exception e ) {
@@ -80,7 +59,6 @@ public class AdvertiseApplication {
   public AdvertiseApplication unregister( Application application, String address, Integer port ) {
     try {
       ServiceDiscovery<ApplicationMetadata> discovery = getDiscovery();
-      discovery.start();
       discovery.unregisterService( getInstance( application, address, port ) );
       discovery.close();
     } catch( Exception e ) {
@@ -91,11 +69,14 @@ public class AdvertiseApplication {
   }
 
   private ServiceDiscovery<ApplicationMetadata> getDiscovery() { 
-    return ServiceDiscoveryBuilder.builder( ApplicationMetadata.class )
+    ServiceDiscovery<ApplicationMetadata> discovery = ServiceDiscoveryBuilder.builder( ApplicationMetadata.class )
       .basePath( basePath )
       .client( curatorClient )
       .serializer( jacksonInstanceSerializer )
       .build();
+
+    discovery.start();
+    return discovery;
   }
 
   private ServiceInstance<ApplicationMetadata> getInstance( Application application, String address, Integer port ) {
